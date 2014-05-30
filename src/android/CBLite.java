@@ -10,6 +10,13 @@ import org.json.JSONArray;
 
 import com.couchbase.lite.android.AndroidContext;
 import com.couchbase.lite.Manager;
+
+import com.couchbase.lite.Database;
+import com.couchbase.lite.Emitter;
+import com.couchbase.lite.Mapper;
+import com.couchbase.lite.Reducer;
+
+
 import com.couchbase.lite.listener.LiteListener;
 import com.couchbase.lite.listener.LiteServlet;
 import com.couchbase.lite.listener.Credentials;
@@ -20,12 +27,19 @@ import com.couchbase.lite.javascript.JavaScriptViewCompiler;
 import java.io.IOException;
 import java.io.File;
 
+import java.util.Map;
+import java.util.List;
+
+
 public class CBLite extends CordovaPlugin {
 
 	private static final int DEFAULT_LISTEN_PORT = 5984;
 	private boolean initFailed = false;
 	private int listenPort;
     private Credentials allowedCredentials;
+public static final String DATABASE_NAME = "stuffdj_client";
+    public static final String designDocName = "cr";
+    private Database database;
 
 	/**
 	 * Constructor.
@@ -46,16 +60,49 @@ public class CBLite extends CordovaPlugin {
 	private void initCBLite() {
 		try {
 
-		    allowedCredentials = new Credentials();
+		    allowedCredentials = new Credentials("admin","123456");
 
 			URLStreamHandlerFactory.registerSelfIgnoreError();
 
 			View.setCompiler(new JavaScriptViewCompiler());
 
 			Manager server = startCBLite(this.cordova.getActivity());
+			database = server.getDatabase(DATABASE_NAME);			
+			com.couchbase.lite.View articlesByDate = database.getView(String.format("%s/%s", designDocName, "articlesByDate"));
+			com.couchbase.lite.View articlesPartsByParent = database.getView(String.format("%s/%s", designDocName, "articlesPartsByParent"));
+			
+			articlesByDate.setMapReduce(new Mapper() {
+            @Override
+            public void map(Map<String, Object> document, Emitter emitter) {
+				String type = (String)document.get("type");				
+				if (type.equals("article")) {					
+					String status = (String)document.get("status");				
+					if (status.equals("Published")){
+						emitter.emit(document.get("date"),document.get("title"));
+					}
+				}
+            }},
+new Reducer() {
+    @Override
+    public Object reduce(List<Object> keys, List<Object> values, boolean rereduce) {
+       return new Integer(values.size());
+    }
+},
 
-			listenPort = startCBLListener(DEFAULT_LISTEN_PORT, server, allowedCredentials);
-
+ "1.0");
+			
+ 	   
+            articlesPartsByParent.setMap(new Mapper() {
+            @Override
+            public void map(Map<String, Object> document, Emitter emitter) {
+				String type = (String)document.get("type");				
+				if (type.equals("part")) {					
+					emitter.emit(document.get("parentId"),document.get("parentId"));
+				}
+            }}, "1.0");
+			
+			
+listenPort = startCBLListener(DEFAULT_LISTEN_PORT, server, allowedCredentials);
 			System.out.println("initCBLite() completed successfully");
 
 
@@ -108,7 +155,7 @@ public class CBLite extends CordovaPlugin {
 
 	private int startCBLListener(int listenPort, Manager server, Credentials allowedCredentials) {
 
-		LiteListener listener = new LiteListener(server, listenPort, allowedCredentials);
+		LiteListener listener = new LiteListener(server, listenPort,null); // allowedCredentials);
 		int boundPort = listener.getListenPort();
 		Thread thread = new Thread(listener);
 		thread.start();
