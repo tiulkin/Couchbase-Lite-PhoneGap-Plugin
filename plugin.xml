@@ -69,8 +69,6 @@
       </feature>
     </config-file>
     <source-file src="src/android/CBLite.java" target-dir="src/com/couchbase/cblite/phonegap"/>
-    <source-file src="lib/android/cbl_collator_so-1.0.0-72.jar" target-dir="libs"/>
-    <source-file src="lib/android/commons-io-2.0.1.jar" target-dir="libs"/>
     <source-file src="lib/android/couchbase-lite-android-1.0.0-72.jar" target-dir="libs"/>
     <source-file src="lib/android/couchbase-lite-java-core-1.0.0-72.jar" target-dir="libs"/>
     <source-file src="lib/android/couchbase-lite-java-javascript-1.0.0-72.jar" target-dir="libs"/>
