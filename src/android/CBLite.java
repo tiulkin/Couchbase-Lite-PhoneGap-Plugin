@@ -37,9 +37,12 @@ public class CBLite extends CordovaPlugin {
 	private boolean initFailed = false;
 	private int listenPort;
     private Credentials allowedCredentials;
-public static final String DATABASE_NAME = "stuffdj_client";
+    public static final String DATABASE_NAME = "stuffdj_client";
+    public static final String DATABASE_NAME1 = "stuffdj_client_master";
+
     public static final String designDocName = "cr";
     private Database database;
+    private Database database1;
 
 	/**
 	 * Constructor.
@@ -67,9 +70,11 @@ public static final String DATABASE_NAME = "stuffdj_client";
 			View.setCompiler(new JavaScriptViewCompiler());
 
 			Manager server = startCBLite(this.cordova.getActivity());
-			database = server.getDatabase(DATABASE_NAME);			
+			database = server.getDatabase(DATABASE_NAME);
+            database1 = server.getDatabase(DATABASE_NAME1);
 			com.couchbase.lite.View articlesByDate = database.getView(String.format("%s/%s", designDocName, "articlesByDate"));
 			com.couchbase.lite.View articlesPartsByParent = database.getView(String.format("%s/%s", designDocName, "articlesPartsByParent"));
+            com.couchbase.lite.View activeChannels = database1.getView(String.format("%s/%s", designDocName, "activeChannels"));
 			
 			articlesByDate.setMapReduce(new Mapper() {
             @Override
@@ -82,26 +87,49 @@ public static final String DATABASE_NAME = "stuffdj_client";
 					}
 				}
             }},
-new Reducer() {
-    @Override
-    public Object reduce(List<Object> keys, List<Object> values, boolean rereduce) {
-       return new Integer(values.size());
-    }
-},
+            new Reducer() {
+                @Override
+                public Object reduce(List<Object> keys, List<Object> values, boolean rereduce) {
+                   return new Integer(values.size());
+                }
+            }, "1.0");
 
- "1.0");
-			
- 	   
-            articlesPartsByParent.setMap(new Mapper() {
-            @Override
-            public void map(Map<String, Object> document, Emitter emitter) {
-				String type = (String)document.get("type");				
-				if (type.equals("part")) {					
-					emitter.emit(document.get("parentId"),document.get("parentId"));
-				}
-            }}, "1.0");
-			
-			
+
+            activeChannels.setMapReduce(new Mapper() {
+                                            @Override
+                                            public void map(Map<String, Object> document, Emitter emitter) {
+                                               String status = (String) document.get("status");
+						System.out.println("MapReduce called");
+						System.out.println("status");
+                                                if (status.equals("active")) {
+//                                                    emitter.emit(document.get("_id"), document.get("name"));
+                                                    emitter.emit(0,0);
+                                                }
+                                            }
+                                        },
+                    new Reducer() {
+                        @Override
+                        public Object reduce(List<Object> keys, List<Object> values, boolean rereduce) {
+                            return new Integer(values.size());
+                        }
+                    }, "1.0");
+
+//            activeChannels.setMap(new Mapper() {
+//            @Override
+//            public void map(Map<String, Object> document, Emitter emitter) {
+//					emitter.emit(0,0);
+//            }}, "1.0");
+
+//            articlesPartsByParent.setMap(new Mapper() {
+//            @Override
+//            public void map(Map<String, Object> document, Emitter emitter) {
+//				String type = (String)document.get("type");
+//				if (type.equals("part")) {
+//					emitter.emit(document.get("parentId"),document.get("parentId"));
+//				}
+//            }}, "1.0");
+
+
 listenPort = startCBLListener(DEFAULT_LISTEN_PORT, server, allowedCredentials);
 			System.out.println("initCBLite() completed successfully");
 
